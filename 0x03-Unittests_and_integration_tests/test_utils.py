@@ -19,7 +19,7 @@ class TestAccessNestedMap(unittest.TestCase):
     
     def test_access_nested_map(self) -> None:
         """Test that access_nested_map returns the expected result."""
-        test_cases = [
+        test_cases: list[tuple[Mapping, Sequence, Any]] = [
             ({"a": 1}, ("a",), 1),
             ({"a": {"b": 2}}, ("a",), {"b": 2}),
             ({"a": {"b": 2}}, ("a", "b"), 2),
@@ -27,11 +27,12 @@ class TestAccessNestedMap(unittest.TestCase):
         
         for nested_map, path, expected in test_cases:
             with self.subTest(nested_map=nested_map, path=path, expected=expected):
-                self.assertEqual(access_nested_map(nested_map, path), expected)
+                result = access_nested_map(nested_map, path)
+                self.assertEqual(result, expected)
     
     def test_access_nested_map_exception(self) -> None:
         """Test that access_nested_map raises KeyError for invalid paths."""
-        test_cases = [
+        test_cases: list[tuple[Mapping, Sequence, str]] = [
             ({}, ("a",), "a"),
             ({"a": 1}, ("a", "b"), "b"),
         ]
@@ -52,7 +53,7 @@ class TestGetJson(unittest.TestCase):
     
     def test_get_json(self) -> None:
         """Test that get_json returns the expected result."""
-        test_cases = [
+        test_cases: list[tuple[str, dict[str, Any]]] = [
             ("http://example.com", {"payload": True}),
             ("http://holberton.io", {"payload": False}),
         ]
