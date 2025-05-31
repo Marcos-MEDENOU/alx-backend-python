@@ -4,9 +4,9 @@
 This module contains unit tests for the utility functions defined in utils.py.
 """
 import unittest
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Tuple, Union, Mapping, Sequence
 from parameterized import parameterized
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 from .utils import access_nested_map, get_json, memoize
 
@@ -25,15 +25,15 @@ class TestAccessNestedMap(unittest.TestCase):
     ])
     def test_access_nested_map(
         self,
-        nested_map: Dict[str, Any],
-        path: Tuple[str, ...],
+        nested_map: Mapping,
+        path: Sequence,
         expected: Union[int, Dict[str, int]]
     ) -> None:
         """Test that access_nested_map returns the expected result.
         
         Args:
             nested_map: A nested dictionary to test with
-            path: A tuple of keys representing the path to access
+            path: A sequence of keys representing the path to access
             expected: The expected value at the given path
         """
         self.assertEqual(access_nested_map(nested_map, path), expected)
@@ -44,16 +44,16 @@ class TestAccessNestedMap(unittest.TestCase):
     ])
     def test_access_nested_map_exception(
         self,
-        nested_map: Dict[str, Any],
-        path: Tuple[str, ...],
+        nested_map: Mapping,
+        path: Sequence,
         expected_key: str
     ) -> None:
-        """Test that access_nested_map raises KeyError with expected message.
+        """Test that access_nested_map raises KeyError for invalid paths.
         
         Args:
-            nested_map: A dictionary to test with
-            path: A tuple of keys representing an invalid path
-            expected_key: The key that should be in the error message
+            nested_map: A nested dictionary to test with
+            path: A sequence of keys representing the path to access
+            expected_key: The key that should raise KeyError
         """
         with self.assertRaises(KeyError) as context:
             access_nested_map(nested_map, path)
