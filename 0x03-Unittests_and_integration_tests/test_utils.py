@@ -5,6 +5,7 @@ This module contains unit tests for the utility functions defined in utils.py.
 """
 import unittest
 from typing import Any, Dict, Tuple, Union, Mapping, Sequence
+from parameterized import parameterized
 from unittest.mock import Mock, patch
 
 from .utils import access_nested_map, get_json, memoize
@@ -17,31 +18,34 @@ class TestAccessNestedMap(unittest.TestCase):
     structures using a sequence of keys.
     """
     
-    def test_access_nested_map(self) -> None:
+    @parameterized.expand([
+        ({"a": 1}, ("a",), 1),
+        ({"a": {"b": 2}}, ("a",), {"b": 2}),
+        ({"a": {"b": 2}}, ("a", "b"), 2),
+    ])
+    def test_access_nested_map(
+        self,
+        nested_map: Mapping,
+        path: Sequence,
+        expected: Union[int, Dict[str, Any]]
+    ) -> None:
         """Test that access_nested_map returns the expected result."""
-        test_cases: list[tuple[Mapping, Sequence, Any]] = [
-            ({"a": 1}, ("a",), 1),
-            ({"a": {"b": 2}}, ("a",), {"b": 2}),
-            ({"a": {"b": 2}}, ("a", "b"), 2),
-        ]
-        
-        for nested_map, path, expected in test_cases:
-            with self.subTest(nested_map=nested_map, path=path, expected=expected):
-                result = access_nested_map(nested_map, path)
-                self.assertEqual(result, expected)
+        self.assertEqual(access_nested_map(nested_map, path), expected)
     
-    def test_access_nested_map_exception(self) -> None:
+    @parameterized.expand([
+        ({}, ("a",), "a"),
+        ({"a": 1}, ("a", "b"), "b"),
+    ])
+    def test_access_nested_map_exception(
+        self,
+        nested_map: Mapping,
+        path: Sequence,
+        expected_key: str
+    ) -> None:
         """Test that access_nested_map raises KeyError for invalid paths."""
-        test_cases: list[tuple[Mapping, Sequence, str]] = [
-            ({}, ("a",), "a"),
-            ({"a": 1}, ("a", "b"), "b"),
-        ]
-        
-        for nested_map, path, expected_key in test_cases:
-            with self.subTest(nested_map=nested_map, path=path, expected_key=expected_key):
-                with self.assertRaises(KeyError) as context:
-                    access_nested_map(nested_map, path)
-                self.assertEqual(str(context.exception), f"'{expected_key}'")
+        with self.assertRaises(KeyError) as context:
+            access_nested_map(nested_map, path)
+        self.assertEqual(str(context.exception), f"'{expected_key}'")
 
 
 class TestGetJson(unittest.TestCase):
@@ -51,29 +55,35 @@ class TestGetJson(unittest.TestCase):
     and return the JSON response, using mocking to avoid actual HTTP calls.
     """
     
-    def test_get_json(self) -> None:
-        """Test that get_json returns the expected result."""
-        test_cases: list[tuple[str, dict[str, Any]]] = [
-            ("http://example.com", {"payload": True}),
-            ("http://holberton.io", {"payload": False}),
-        ]
+    @parameterized.expand([
+        ("http://example.com", {"payload": True}),
+        ("http://holberton.io", {"payload": False}),
+    ])
+    def test_get_json(
+        self,
+        test_url: str,
+        test_payload: Dict[str, Any]
+    ) -> None:
+        """Test that get_json returns the expected result.
         
-        for test_url, test_payload in test_cases:
-            with self.subTest(test_url=test_url, test_payload=test_payload):
-                # Create a mock response object with a json method that returns test_payload
-                mock_response = Mock()
-                mock_response.json.return_value = test_payload
-                
-                # Patch requests.get to return our mock response
-                with patch('requests.get', return_value=mock_response) as mock_get:
-                    # Call the function with the test URL
-                    result = get_json(test_url)
-                    
-                    # Verify that requests.get was called exactly once with test_url
-                    mock_get.assert_called_once_with(test_url)
-                    
-                    # Verify that the result matches test_payload
-                    self.assertEqual(result, test_payload)
+        Args:
+            test_url: The URL to test with
+            test_payload: The expected JSON payload to be returned
+        """
+        # Create a mock response object with a json method that returns test_payload
+        mock_response = Mock()
+        mock_response.json.return_value = test_payload
+        
+        # Patch requests.get to return our mock response
+        with patch('requests.get', return_value=mock_response) as mock_get:
+            # Call the function with the test URL
+            result = get_json(test_url)
+            
+            # Verify that requests.get was called exactly once with test_url
+            mock_get.assert_called_once_with(test_url)
+            
+            # Verify that the result matches test_payload
+            self.assertEqual(result, test_payload)
 
 
 class TestMemoize(unittest.TestCase):
