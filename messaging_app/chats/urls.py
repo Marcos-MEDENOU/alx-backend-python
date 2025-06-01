@@ -1,13 +1,3 @@
-# from rest_framework.routers import DefaultRouter
-# from django.urls import path, include
-# from .views import ConversationViewSet, MessageViewSet
-
-# router = DefaultRouter()
-# router.register(r'conversations', ConversationViewSet, basename='conversation')
-# router.register(r'messages', MessageViewSet, basename='message')
-
-# urlpatterns = router.urls
-
 from django.urls import path, include
 from rest_framework import routers
 from rest_framework_nested import routers as nested_routers
@@ -31,13 +21,10 @@ conversations_router.register(
 
 urlpatterns = [
     # Inclure toutes les routes du router principal
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
     
     # Inclure toutes les routes du router imbriqué
-    path('api/', include(conversations_router.urls)),
-    
-    # Routes supplémentaires si nécessaire
-    path('api/auth/', include('rest_framework.urls')),
+    path('', include(conversations_router.urls)),
 ]
 
 # Les routes générées seront :
