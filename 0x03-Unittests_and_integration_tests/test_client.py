@@ -113,7 +113,5 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
         repos = client.public_repos("apache-2.0")
         self.assertEqual(repos, self.apache_repos)
 
-
-
 if __name__ == "__main__":
     unittest.main()
