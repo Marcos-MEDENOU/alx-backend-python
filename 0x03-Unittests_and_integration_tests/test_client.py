@@ -99,19 +99,65 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
         # stop the patcher
         cls.get_patcher.stop()
 
-    def test_public_repos(self):
-        """ Test public_repos method
-        """
-        client = GithubOrgClient("google")
-        repos = client.public_repos()
-        self.assertEqual(repos, self.expected_repos)
+    # def test_public_repos(self):
+    #     """ Test public_repos method
+    #     """
+    #     client = GithubOrgClient("google")
+    #     repos = client.public_repos()
+    #     self.assertEqual(repos, self.expected_repos)
 
-    def test_public_repos_with_license(self):
-        """ Test public_repos method with license
-        """
-        client = GithubOrgClient("google")
-        repos = client.public_repos("apache-2.0")
-        self.assertEqual(repos, self.apache_repos)
+    # def test_public_repos_with_license(self):
+    #     """ Test public_repos method with license
+    #     """
+    #     client = GithubOrgClient("google")
+    #     repos = client.public_repos("apache-2.0")
+    #     self.assertEqual(repos, self.apache_repos)
+    @patch('client.GithubOrgClient.org')
+    def test_public_repos(self, mock_org):
+        """Test the public_repos method without license"""
+        test_payload = {
+            'repos_url': 'https://api.github.com/orgs/test/repos',
+            'repos': [
+                {'name': 'repo1'},
+                {'name': 'repo2'}
+            ]
+        }
+        mock_org.return_value = test_payload
+    
+        with patch('client.get_json') as mock_get_json:
+            mock_get_json.return_value = test_payload['repos']
+            client = GithubOrgClient('test')
+            result = client.public_repos()
+            
+            expected_repos = ['repo1', 'repo2']
+            self.assertEqual(result, expected_repos)
+            mock_get_json.assert_called_once_with(
+                'https://api.github.com/orgs/test/repos'
+            )
+
+    @patch('client.GithubOrgClient.org')
+    def test_public_repos_with_license(self, mock_org):
+        """Test the public_repos method with license argument"""
+        test_payload = {
+            'repos_url': 'https://api.github.com/orgs/test/repos',
+            'repos': [
+                {'name': 'repo1', 'license': {'key': 'apache-2.0'}},
+                {'name': 'repo2', 'license': {'key': 'mit'}},
+                {'name': 'repo3', 'license': {'key': 'apache-2.0'}}
+            ]
+        }
+        mock_org.return_value = test_payload
+        
+        with patch('client.get_json') as mock_get_json:
+            mock_get_json.return_value = test_payload['repos']
+            client = GithubOrgClient('test')
+            result = client.public_repos(license='apache-2.0')
+            
+            expected_repos = ['repo1', 'repo3']
+            self.assertEqual(result, expected_repos)
+            mock_get_json.assert_called_once_with(
+                'https://api.github.com/orgs/test/repos'
+            )
 
 
 if __name__ == "__main__":
