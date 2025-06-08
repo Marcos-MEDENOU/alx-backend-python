@@ -9,6 +9,8 @@ from .models import Conversation, Message, User
 from .serializers import ConversationSerializer, MessageSerializer, UserSerializer
 from .permissions import IsParticipantOfConversation
 from rest_framework import status
+from .pagination import MessagePagination
+from .filters import MessageFilter
 
 class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
@@ -84,6 +86,8 @@ class MessageViewSet(viewsets.ModelViewSet):
     search_fields = ['message_body', 'sender__username']
     ordering_fields = ['sent_at']
     ordering = ['sent_at']
+    pagination_class = MessagePagination
+    filterset_class = MessageFilter
 
     def get_queryset(self):
         conversation_id = self.kwargs.get('conversation_pk')
