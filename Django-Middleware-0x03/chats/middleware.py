@@ -37,6 +37,23 @@ class RestrictAccessByTimeMiddleware:
         return self.get_response(request)
 
 
+class RolepermissionMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated:
+            # Check if user is admin (superuser or staff)
+            if user.is_superuser or user.is_staff:
+                return self.get_response(request)
+            # Check if user has 'moderator' group
+            if user.groups.filter(name='moderator').exists():
+                return self.get_response(request)
+            return HttpResponseForbidden('You do not have permission to perform this action (admin or moderator only).')
+        return HttpResponseForbidden('Authentication required.')
+
+
 class OffensiveLanguageMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
