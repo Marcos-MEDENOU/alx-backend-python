@@ -2,18 +2,16 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    
-    # API routes - inclure les routes de l'app chats
     path('api/', include('chats.urls')),
-    
-    # API Authentication - requis par la vérification
-    path('api-auth/', include('rest_framework.urls')),
-    
-    # Optionnel : route pour la documentation de l'API si vous utilisez DRF
-    # path('api/docs/', include_docs_urls(title='Messaging App API')),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
 
 # Servir les fichiers media en développement
