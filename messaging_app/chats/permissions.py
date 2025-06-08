@@ -2,7 +2,7 @@ from rest_framework import permissions
 
 class IsParticipantOfConversation(permissions.BasePermission):
     """
-    Allows access only to authenticated users who are participants in the conversation.
+    Allows only participants to send, view, update, and delete messages in a conversation.
     """
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated
@@ -13,5 +13,8 @@ class IsParticipantOfConversation(permissions.BasePermission):
             return request.user in obj.participants.all()
         # For Message objects
         if hasattr(obj, 'conversation'):
-            return request.user in obj.conversation.participants.all()
+            is_participant = request.user in obj.conversation.participants.all()
+            if request.method in ['PUT', 'PATCH', 'DELETE']:
+                return is_participant
+            return is_participant
         return False

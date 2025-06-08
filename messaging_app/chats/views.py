@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from .models import Conversation, Message, User
 from .serializers import ConversationSerializer, MessageSerializer, UserSerializer
 from .permissions import IsParticipantOfConversation
+from rest_framework import status
 
 class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
@@ -146,3 +147,15 @@ class MessageViewSet(viewsets.ModelViewSet):
             {'message': f'{messages.count()} messages marqués comme lus'}, 
             status=status.HTTP_200_OK
         )
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not self.check_object_permissions(request, instance):
+            return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not self.check_object_permissions(request, instance):
+            return Response({'detail': 'You do not have permission to perform this action.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
