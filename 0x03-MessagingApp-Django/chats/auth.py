@@ -1,0 +1,1 @@
+# You can add custom authentication classes or helpers here if needed
