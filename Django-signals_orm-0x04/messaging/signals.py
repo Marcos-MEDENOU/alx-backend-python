@@ -1,8 +1,10 @@
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
+from django.db import transaction
 from .models import Message, Notification, MessageHistory
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 User = get_user_model()
 
@@ -40,3 +42,25 @@ def save_previous_message_content(sender, instance, **kwargs):
                 instance.last_edited = timezone.now()
         except Message.DoesNotExist:
             pass  # New message, nothing to save in history
+
+
+@receiver(post_delete, sender=User)
+def delete_user_related_data(sender, instance, **kwargs):
+    """
+    Signal handler to clean up related data when a user is deleted.
+    This is a safety net in case CASCADE doesn't work as expected.
+    """
+    # Delete all messages where the user is either sender or receiver
+    Message.objects.filter(sender=instance).delete()
+    Message.objects.filter(receiver=instance).delete()
+    
+    # Delete all notifications for this user
+    Notification.objects.filter(user=instance).delete()
+    
+    # Delete message history where the user was the editor
+    MessageHistory.objects.filter(edited_by=instance).delete()
+    
+    # For MessageHistory where the user was mentioned in the content
+    # (This is optional and might be resource-intensive for large datasets)
+    for history in MessageHistory.objects.filter(content__icontains=instance.username):
+        history.delete()
