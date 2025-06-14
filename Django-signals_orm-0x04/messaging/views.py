@@ -10,9 +10,9 @@ User = get_user_model()
 
 @login_required
 @require_http_methods(["GET", "POST"])
-def delete_account(request):
+def delete_user(request):
     """
-    View to handle account deletion with confirmation.
+    View to handle user account deletion with confirmation.
     The actual user deletion will be handled by the post_delete signal.
     """
     user = request.user

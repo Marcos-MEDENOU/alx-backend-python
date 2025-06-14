@@ -4,6 +4,6 @@ from . import views
 app_name = 'messaging'
 
 urlpatterns = [
-    path('account/delete/', views.delete_account, name='delete_account'),
+    path('user/delete/', views.delete_user, name='delete_user'),
     # Add other URLs as needed
 ]
