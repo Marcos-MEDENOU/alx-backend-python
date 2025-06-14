@@ -42,51 +42,59 @@ def delete_user(request):
 def inbox(request):
     """
     Affiche la boîte de réception de l'utilisateur avec les conversations.
-    Utilise select_related pour optimiser les requêtes.
+    Utilise le gestionnaire personnalisé pour les messages non lus.
     """
-    # Récupérer les messages reçus et envoyés
-    received_messages = Message.objects.filter(
-        receiver=request.user
-    ).select_related('sender').order_by('-timestamp')
+    # Utilisation du gestionnaire personnalisé pour les messages non lus
+    unread_messages = Message.unread_objects.for_user(request.user)
     
-    sent_messages = Message.objects.filter(
-        sender=request.user
-    ).select_related('receiver').order_by('-timestamp')
+    # Récupérer les derniers messages de chaque conversation
+    # Utilisation de select_related pour optimiser les requêtes
+    latest_messages = Message.objects.filter(
+        Q(receiver=request.user) | Q(sender=request.user)
+    ).select_related('sender', 'receiver').order_by('sender', 'receiver', '-timestamp').distinct('sender', 'receiver')
     
     # Créer une liste unique de conversations
-    conversations = {}
+    conversations = []
     
-    # Traiter les messages reçus
-    for msg in received_messages:
-        other_user = msg.sender
-        if other_user not in conversations:
-            conversations[other_user] = {
-                'last_message': msg,
-                'unread_count': Message.objects.filter(
-                    sender=other_user,
-                    receiver=request.user,
-                    is_read=False
-                ).count()
-            }
+    # Utilisation d'un ensemble pour éviter les doublons
+    seen_conversations = set()
     
-    # Traiter les messages envoyés
-    for msg in sent_messages:
-        other_user = msg.receiver
-        if other_user not in conversations:
-            conversations[other_user] = {
-                'last_message': msg,
-                'unread_count': 0
-            }
+    for msg in latest_messages:
+        # Déterminer l'autre utilisateur de la conversation
+        if msg.sender == request.user:
+            other_user = msg.receiver
+        else:
+            other_user = msg.sender
+        
+        # Vérifier si on a déjà traité cette conversation
+        if other_user.id in seen_conversations:
+            continue
+            
+        seen_conversations.add(other_user.id)
+        
+        # Utiliser le gestionnaire personnalisé pour le décompte des non lus
+        unread_count = Message.unread_objects.unread_count_for_user(request.user)
+        
+        conversations.append({
+            'other_user': other_user,
+            'last_message': msg,
+            'unread_count': unread_count
+        })
     
     # Trier les conversations par date du dernier message
-    sorted_conversations = sorted(
-        conversations.items(),
-        key=lambda x: x[1]['last_message'].timestamp,
-        reverse=True
-    )
+    conversations.sort(key=lambda x: x['last_message'].timestamp, reverse=True)
+    
+    # Marquer les messages comme lus si nécessaire
+    if request.method == 'POST' and 'mark_all_read' in request.POST:
+        unread_ids = list(unread_messages.values_list('id', flat=True))
+        if unread_ids:
+            Message.unread_objects.mark_as_read(unread_ids, request.user)
+            messages.success(request, "All messages marked as read.")
+            return redirect('messaging:inbox')
     
     return render(request, 'messaging/inbox.html', {
-        'conversations': sorted_conversations,
+        'conversations': conversations,
+        'unread_count': len(unread_messages),
     })
 
 
@@ -94,22 +102,35 @@ def inbox(request):
 def conversation(request, user_id):
     """
     Affiche la conversation avec un utilisateur spécifique.
-    Utilise select_related et prefetch_related pour optimiser les requêtes.
+    Utilise le gestionnaire personnalisé et optimise les requêtes.
     """
     other_user = get_object_or_404(get_user_model(), pk=user_id)
     
-    # Marquer les messages comme lus
-    Message.objects.filter(
+    # Marquer les messages non lus comme lus en utilisant le gestionnaire personnalisé
+    unread_messages = Message.unread_objects.filter(
         sender=other_user,
-        receiver=request.user,
-        is_read=False
-    ).update(is_read=True)
+        receiver=request.user
+    )
     
-    # Récupérer les messages avec optimisation des requêtes
+    # Récupérer les IDs des messages non lus
+    unread_ids = list(unread_messages.values_list('id', flat=True))
+    
+    # Marquer les messages comme lus en une seule requête
+    if unread_ids:
+        Message.unread_objects.mark_as_read(unread_ids, request.user)
+    
+    # Récupérer la conversation avec optimisation des requêtes
+    # Utilisation de select_related pour les relations et only() pour les champs nécessaires
     messages = Message.objects.filter(
         Q(sender=request.user, receiver=other_user) |
         Q(sender=other_user, receiver=request.user)
-    ).select_related('sender', 'receiver').order_by('timestamp')
+    ).select_related(
+        'sender', 'receiver'
+    ).only(
+        'id', 'content', 'timestamp', 'is_read', 'is_edited',
+        'sender__id', 'sender__username', 'sender__email',
+        'receiver__id', 'receiver__username'
+    ).order_by('timestamp')
     
     # Si c'est une requête AJAX, renvoyer uniquement les messages
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -118,9 +139,13 @@ def conversation(request, user_id):
             'current_user': request.user
         })
     
+    # Récupérer le nombre de messages non lus pour l'affichage
+    unread_count = Message.unread_objects.unread_count_for_user(request.user)
+    
     return render(request, 'messaging/conversation.html', {
         'other_user': other_user,
-        'messages': messages
+        'messages': messages,
+        'unread_count': unread_count
     })
 
 

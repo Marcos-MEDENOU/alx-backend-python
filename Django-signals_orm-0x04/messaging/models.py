@@ -2,8 +2,47 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.utils.text import slugify
+from django.db.models import Q, F
 
 User = get_user_model()
+
+
+class UnreadMessagesManager(models.Manager):
+    """
+    Gestionnaire personnalisé pour les messages non lus.
+    """
+    def for_user(self, user):
+        """
+        Retourne les messages non lus pour un utilisateur donné.
+        Utilise only() pour optimiser les requêtes en ne récupérant que les champs nécessaires.
+        """
+        return self.get_queryset().filter(
+            receiver=user,
+            is_read=False
+        ).select_related('sender').only(
+            'id', 'content', 'timestamp', 'sender__id', 'sender__username'
+        ).order_by('-timestamp')
+    
+    def unread_count_for_user(self, user):
+        """
+        Retourne le nombre de messages non lus pour un utilisateur.
+        Utilise values() et count() pour une requête plus légère.
+        """
+        return self.get_queryset().filter(
+            receiver=user,
+            is_read=False
+        ).values('id').count()
+    
+    def mark_as_read(self, message_ids, user):
+        """
+        Marque les messages comme lus.
+        Utilise update() pour une mise à jour en masse plus efficace.
+        """
+        return self.get_queryset().filter(
+            id__in=message_ids,
+            receiver=user,
+            is_read=False
+        ).update(is_read=True)
 
 
 class MessageHistory(models.Model):
@@ -31,6 +70,11 @@ class MessageHistory(models.Model):
 
 class Message(models.Model):
     """Model representing a message between users."""
+    # Gestionnaires
+    objects = models.Manager()  # Le gestionnaire par défaut
+    unread_objects = UnreadMessagesManager()  # Notre gestionnaire personnalisé
+    
+    # Champs du modèle
     sender = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -43,9 +87,19 @@ class Message(models.Model):
     )
     content = models.TextField()
     timestamp = models.DateTimeField(default=timezone.now)
-    is_read = models.BooleanField(default=False)
+    is_read = models.BooleanField(
+        default=False,
+        help_text="Indique si le message a été lu par le destinataire"
+    )
     is_edited = models.BooleanField(default=False)
     last_edited = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['receiver', 'is_read']),  # Pour optimiser les requêtes de messages non lus
+            models.Index(fields=['sender', 'receiver']),   # Pour les conversations
+        ]
     parent_message = models.ForeignKey(
         'self',
         null=True,
