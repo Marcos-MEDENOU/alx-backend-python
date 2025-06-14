@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.cache import cache_page
 from django.db.models import Q
 from .models import Message, Notification
 from .forms import DeleteAccountForm
@@ -99,10 +100,12 @@ def inbox(request):
 
 
 @login_required
+@cache_page(60)  # Cache la vue pendant 60 secondes
 def conversation(request, user_id):
     """
     Affiche la conversation avec un utilisateur spécifique.
     Utilise le gestionnaire personnalisé et optimise les requêtes.
+    La vue est mise en cache pendant 60 secondes.
     """
     other_user = get_object_or_404(get_user_model(), pk=user_id)
     
