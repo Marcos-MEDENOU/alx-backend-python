@@ -46,6 +46,65 @@ class Message(models.Model):
     is_read = models.BooleanField(default=False)
     is_edited = models.BooleanField(default=False)
     last_edited = models.DateTimeField(null=True, blank=True)
+    parent_message = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='replies',
+        verbose_name='Message parent'
+    )
+    
+    # Pour optimiser les requêtes récursives
+    _thread_depth = models.PositiveIntegerField(default=0, editable=False)
+    
+    def save(self, *args, **kwargs):
+        # Calculer la profondeur du fil de discussion
+        if self.parent_message:
+            self._thread_depth = self.parent_message._thread_depth + 1
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_thread(self):
+        """Vérifie si le message a des réponses"""
+        return self.replies.exists()
+    
+    @classmethod
+    def get_thread(cls, message_id):
+        """Récupère un message avec tous ses réponses de manière optimisée"""
+        from django.db.models import Prefetch
+        
+        return cls.objects.select_related(
+            'sender', 'receiver', 'parent_message'
+        ).prefetch_related(
+            Prefetch(
+                'replies',
+                queryset=cls.objects.select_related('sender', 'receiver')
+                                 .order_by('timestamp'),
+                to_attr='thread_replies'
+            )
+        ).get(pk=message_id)
+    
+    def get_threaded_replies(self):
+        """Récupère toutes les réponses de manière récursive"""
+        from django.db.models import Q
+        
+        # Récupération de tous les messages du fil
+        thread_messages = Message.objects.filter(
+            Q(pk=self.pk) | 
+            Q(parent_message__in=self.replies.all())
+        ).select_related('sender', 'receiver')
+        
+        # Construction de l'arbre des réponses
+        messages_dict = {msg.id: msg for msg in thread_messages}
+        for msg in thread_messages:
+            if msg.parent_message_id:
+                parent = messages_dict[msg.parent_message_id]
+                if not hasattr(parent, 'thread_replies'):
+                    parent.thread_replies = []
+                parent.thread_replies.append(msg)
+        
+        return messages_dict.get(self.id, None)
 
     class Meta:
         ordering = ['-timestamp']

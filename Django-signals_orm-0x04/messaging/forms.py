@@ -1,8 +1,23 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth import get_user_model
+from .models import Message
 
 User = get_user_model()
+
+
+class ReplyForm(forms.ModelForm):
+    """Formulaire pour répondre à un message."""
+    class Meta:
+        model = Message
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Type your reply here...'
+            }),
+        }
 
 class DeleteAccountForm(forms.Form):
     """
