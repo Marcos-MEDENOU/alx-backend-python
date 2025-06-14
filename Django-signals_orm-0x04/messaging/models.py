@@ -4,45 +4,10 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.db.models import Q, F
 
+# Import du gestionnaire personnalisé
+from .managers import UnreadMessageManager
+
 User = get_user_model()
-
-
-class UnreadMessagesManager(models.Manager):
-    """
-    Gestionnaire personnalisé pour les messages non lus.
-    """
-    def for_user(self, user):
-        """
-        Retourne les messages non lus pour un utilisateur donné.
-        Utilise only() pour optimiser les requêtes en ne récupérant que les champs nécessaires.
-        """
-        return self.get_queryset().filter(
-            receiver=user,
-            is_read=False
-        ).select_related('sender').only(
-            'id', 'content', 'timestamp', 'sender__id', 'sender__username'
-        ).order_by('-timestamp')
-    
-    def unread_count_for_user(self, user):
-        """
-        Retourne le nombre de messages non lus pour un utilisateur.
-        Utilise values() et count() pour une requête plus légère.
-        """
-        return self.get_queryset().filter(
-            receiver=user,
-            is_read=False
-        ).values('id').count()
-    
-    def mark_as_read(self, message_ids, user):
-        """
-        Marque les messages comme lus.
-        Utilise update() pour une mise à jour en masse plus efficace.
-        """
-        return self.get_queryset().filter(
-            id__in=message_ids,
-            receiver=user,
-            is_read=False
-        ).update(is_read=True)
 
 
 class MessageHistory(models.Model):
@@ -72,7 +37,7 @@ class Message(models.Model):
     """Model representing a message between users."""
     # Gestionnaires
     objects = models.Manager()  # Le gestionnaire par défaut
-    unread_objects = UnreadMessagesManager()  # Notre gestionnaire personnalisé
+    unread = UnreadMessageManager()  # Notre gestionnaire personnalisé
     
     # Champs du modèle
     sender = models.ForeignKey(

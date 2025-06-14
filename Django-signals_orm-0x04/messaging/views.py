@@ -45,7 +45,7 @@ def inbox(request):
     Utilise le gestionnaire personnalisé pour les messages non lus.
     """
     # Utilisation du gestionnaire personnalisé pour les messages non lus
-    unread_messages = Message.unread_objects.for_user(request.user)
+    unread_messages = Message.unread.unread_for_user(request.user)
     
     # Récupérer les derniers messages de chaque conversation
     # Utilisation de select_related pour optimiser les requêtes
@@ -73,7 +73,7 @@ def inbox(request):
         seen_conversations.add(other_user.id)
         
         # Utiliser le gestionnaire personnalisé pour le décompte des non lus
-        unread_count = Message.unread_objects.unread_count_for_user(request.user)
+        unread_count = Message.unread.unread_count_for_user(request.user)
         
         conversations.append({
             'other_user': other_user,
@@ -106,10 +106,9 @@ def conversation(request, user_id):
     """
     other_user = get_object_or_404(get_user_model(), pk=user_id)
     
-    # Marquer les messages non lus comme lus en utilisant le gestionnaire personnalisé
-    unread_messages = Message.unread_objects.filter(
-        sender=other_user,
-        receiver=request.user
+    # Récupérer les messages non lus avec le gestionnaire personnalisé
+    unread_messages = Message.unread.unread_for_user(request.user).filter(
+        sender=other_user
     )
     
     # Récupérer les IDs des messages non lus
@@ -117,7 +116,7 @@ def conversation(request, user_id):
     
     # Marquer les messages comme lus en une seule requête
     if unread_ids:
-        Message.unread_objects.mark_as_read(unread_ids, request.user)
+        Message.unread.mark_as_read(unread_ids, request.user)
     
     # Récupérer la conversation avec optimisation des requêtes
     # Utilisation de select_related pour les relations et only() pour les champs nécessaires
@@ -140,7 +139,7 @@ def conversation(request, user_id):
         })
     
     # Récupérer le nombre de messages non lus pour l'affichage
-    unread_count = Message.unread_objects.unread_count_for_user(request.user)
+    unread_count = Message.unread.unread_count_for_user(request.user)
     
     return render(request, 'messaging/conversation.html', {
         'other_user': other_user,
