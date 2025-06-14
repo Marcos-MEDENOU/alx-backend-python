@@ -5,7 +5,7 @@ from django.utils.text import slugify
 from django.db.models import Q, F
 
 # Import du gestionnaire personnalisé
-from .managers import UnreadMessageManager
+from .managers import UnreadMessagesManager
 
 User = get_user_model()
 

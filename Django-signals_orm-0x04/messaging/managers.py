@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Q
 
 
-class UnreadMessageManager(models.Manager):
+class UnreadMessagesManager(models.Manager):
     """
     Gestionnaire personnalisé pour les messages non lus.
     """
