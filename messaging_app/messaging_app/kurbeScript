@@ -1,226 +1,37 @@
 #!/bin/bash
 
-# kurbeScript - Kubernetes Local Setup and Management Script
-# File: messaging_app/kurbeScript
-# Repository: alx-backend-python
+# kurbeScript - Set up and verify a local Kubernetes cluster
 
-set -e  # Exit on any error
+echo "=== [1/4] Vérification de l'installation de Minikube ==="
+if ! command -v minikube &> /dev/null
+then
+    echo "Erreur : Minikube n'est pas installé. Veuillez l'installer depuis https://minikube.sigs.k8s.io/docs/start/"
+    exit 1
+fi
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+echo "Minikube est installé."
 
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+echo "=== [2/4] Démarrage du cluster Minikube ==="
+minikube start
+if [ $? -ne 0 ]; then
+    echo "Erreur : Échec du démarrage du cluster Minikube."
+    exit 1
+fi
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Function to check if Minikube is installed
-check_minikube() {
-    print_status "Checking if Minikube is installed..."
-    
-    if command_exists minikube; then
-        print_success "Minikube is installed"
-        minikube version
-        return 0
-    else
-        print_error "Minikube is not installed!"
-        echo
-        echo "Please install Minikube using one of the following methods:"
-        echo
-        echo "On macOS (using Homebrew):"
-        echo "  brew install minikube"
-        echo
-        echo "On Ubuntu/Debian:"
-        echo "  curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64"
-        echo "  sudo install minikube-linux-amd64 /usr/local/bin/minikube"
-        echo
-        echo "On Windows (using Chocolatey):"
-        echo "  choco install minikube"
-        echo
-        echo "For other installation methods, visit: https://minikube.sigs.k8s.io/docs/start/"
+echo "=== [3/4] Vérification du cluster avec kubectl ==="
+if ! command -v kubectl &> /dev/null
+then
+    echo "kubectl n'est pas trouvé. Tentative de configuration via minikube..."
+    minikube kubectl -- get pods
+else
+    kubectl cluster-info
+    if [ $? -ne 0 ]; then
+        echo "Erreur : Le cluster n'est pas accessible avec kubectl."
         exit 1
     fi
-}
+fi
 
-# Function to check if kubectl is installed
-check_kubectl() {
-    print_status "Checking if kubectl is installed..."
-    
-    if command_exists kubectl; then
-        print_success "kubectl is installed"
-        kubectl version --client
-        return 0
-    else
-        print_error "kubectl is not installed!"
-        echo
-        echo "kubectl is required to interact with the Kubernetes cluster."
-        echo "You can install it using:"
-        echo
-        echo "On macOS (using Homebrew):"
-        echo "  brew install kubectl"
-        echo
-        echo "On Ubuntu/Debian:"
-        echo "  sudo apt-get update && sudo apt-get install -y kubectl"
-        echo
-        echo "Or download directly:"
-        echo "  curl -LO \"https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl\""
-        echo "  sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl"
-        exit 1
-    fi
-}
+echo "=== [4/4] Liste des pods disponibles ==="
+kubectl get pods --all-namespaces
 
-# Function to start Minikube cluster
-start_cluster() {
-    print_status "Starting Kubernetes cluster with Minikube..."
-    
-    # Check if Minikube is already running
-    if minikube status >/dev/null 2>&1; then
-        print_warning "Minikube cluster is already running"
-        minikube status
-    else
-        print_status "Starting new Minikube cluster..."
-        # Start Minikube with recommended settings
-        minikube start \
-            --driver=docker \
-            --memory=4096 \
-            --cpus=2 \
-            --kubernetes-version=stable \
-            --addons=dashboard,metrics-server
-        
-        if [ $? -eq 0 ]; then
-            print_success "Minikube cluster started successfully!"
-        else
-            print_error "Failed to start Minikube cluster"
-            exit 1
-        fi
-    fi
-}
-
-# Function to verify cluster is running
-verify_cluster() {
-    print_status "Verifying that the cluster is running..."
-    
-    # Wait a moment for cluster to be fully ready
-    sleep 5
-    
-    print_status "Running 'kubectl cluster-info'..."
-    if kubectl cluster-info; then
-        print_success "Cluster is running and accessible!"
-        echo
-        
-        # Additional cluster information
-        print_status "Cluster nodes:"
-        kubectl get nodes
-        echo
-        
-        print_status "Cluster components status:"
-        kubectl get componentstatuses 2>/dev/null || print_warning "Component status check not available in this Kubernetes version"
-        
-    else
-        print_error "Failed to connect to cluster"
-        exit 1
-    fi
-}
-
-# Function to retrieve available pods
-get_pods() {
-    print_status "Retrieving available pods..."
-    echo
-    
-    # Get pods from all namespaces
-    print_status "Pods in all namespaces:"
-    kubectl get pods --all-namespaces
-    echo
-    
-    # Get pods from default namespace specifically
-    print_status "Pods in default namespace:"
-    kubectl get pods
-    
-    # If no pods in default namespace, show helpful message
-    if [ $(kubectl get pods --no-headers 2>/dev/null | wc -l) -eq 0 ]; then
-        echo
-        print_warning "No pods found in the default namespace."
-        echo "You can deploy a sample application with:"
-        echo "  kubectl create deployment hello-minikube --image=k8s.gcr.io/echoserver:1.4"
-        echo "  kubectl expose deployment hello-minikube --type=NodePort --port=8080"
-    fi
-}
-
-# Function to show useful commands
-show_useful_commands() {
-    echo
-    print_status "Useful commands for managing your cluster:"
-    echo
-    echo "Cluster Management:"
-    echo "  minikube status          - Check cluster status"
-    echo "  minikube stop            - Stop the cluster"
-    echo "  minikube delete          - Delete the cluster"
-    echo "  minikube dashboard       - Open Kubernetes dashboard"
-    echo
-    echo "kubectl Commands:"
-    echo "  kubectl get nodes        - List cluster nodes"
-    echo "  kubectl get pods         - List pods in default namespace"
-    echo "  kubectl get services     - List services"
-    echo "  kubectl get deployments - List deployments"
-    echo
-    echo "Deploy Sample Application:"
-    echo "  kubectl create deployment nginx --image=nginx"
-    echo "  kubectl expose deployment nginx --port=80 --type=NodePort"
-    echo "  minikube service nginx   - Access the nginx service"
-}
-
-# Main execution
-main() {
-    echo "=================================================="
-    echo "    Kubernetes Local Setup Script (kurbeScript)"
-    echo "=================================================="
-    echo
-    
-    # Check prerequisites
-    check_minikube
-    echo
-    check_kubectl
-    echo
-    
-    # Start cluster
-    start_cluster
-    echo
-    
-    # Verify cluster
-    verify_cluster
-    echo
-    
-    # Get pods
-    get_pods
-    
-    # Show useful commands
-    show_useful_commands
-    
-    echo
-    print_success "Kubernetes cluster setup completed successfully!"
-    echo "Your local Kubernetes cluster is ready to use."
-}
-
-# Run main function
-main "$@"
+echo "✅ Cluster Kubernetes local prêt à l'emploi."
